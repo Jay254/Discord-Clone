@@ -43,10 +43,24 @@ export default function MessagePage({
         {messages?.map((message) => (
           <MessageItem key={message._id} message={message} />
         ))}
-      </ScrollArea>
+          </ScrollArea>
+          <TypingIndicator directMessage={id} />
       <MessageInput directMessage={id} />
     </div>
   );
+}
+
+function TypingIndicator({ directMessage }: { directMessage: Id<"directMessages"> }) {
+    const usernames = useQuery(api.functions.typing.list, { directMessage });
+    if (!usernames || usernames.length === 0) {
+      return null;
+    }
+  return (
+    <div className="text-sm text-muted-foreground px-4 py-2">
+      {usernames.join(", ")} is typing...
+    </div>
+  );
+
 }
 
 type Message = FunctionReturnType<typeof api.functions.message.list>[number];
@@ -70,8 +84,8 @@ function MessageItem({ message }: { message: Message }) {
 }
 
 function MessageActions({ message }: { message: Message }) {
-    const user = useQuery(api.functions.user.get);
-    const removeMutation = useMutation(api.functions.message.remove);
+  const user = useQuery(api.functions.user.get);
+  const removeMutation = useMutation(api.functions.message.remove);
 
   if (!user || message.sender?._id !== user._id) {
     return null;
@@ -84,7 +98,10 @@ function MessageActions({ message }: { message: Message }) {
         <span className="sr-only">Message Actions</span>
       </DropdownMenuTrigger>
       <DropdownMenuContent>
-              <DropdownMenuItem className="text-destructive" onClick={() => removeMutation({ id: message._id })}>
+        <DropdownMenuItem
+          className="text-destructive"
+          onClick={() => removeMutation({ id: message._id })}
+        >
           <TrashIcon />
           Delete
         </DropdownMenuItem>
@@ -98,20 +115,22 @@ function MessageInput({
 }: {
   directMessage: Id<"directMessages">;
 }) {
-    const [content, setContent] = useState("");
-    const sendMessage = useMutation(api.functions.message.create);
-    
-    const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-        e.preventDefault();
-        try {
-            await sendMessage({ directMessage, content });
-            setContent("");
-        } catch (error) {
-            toast.error("Failed to send message", {
-                description: error instanceof Error ? error.message : "An unknown error occurred",
-            })
-        }
-    };
+  const [content, setContent] = useState("");
+  const sendMessage = useMutation(api.functions.message.create);
+  const sendTypingIndicator = useMutation(api.functions.typing.upsert);
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    try {
+      await sendMessage({ directMessage, content });
+      setContent("");
+    } catch (error) {
+      toast.error("Failed to send message", {
+        description:
+          error instanceof Error ? error.message : "An unknown error occurred",
+      });
+    }
+  };
 
   return (
     <form className="flex items-center p-4 gap-2" onSubmit={handleSubmit}>
@@ -119,6 +138,11 @@ function MessageInput({
         placeholder="Message"
         value={content}
         onChange={(e) => setContent(e.target.value)}
+        onKeyDown={(e) => {
+          if (content.length > 0) {
+            sendTypingIndicator({ directMessage });
+          }
+        }}
       />
       <Button size="icon">
         <SendIcon />

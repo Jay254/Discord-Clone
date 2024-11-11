@@ -1,6 +1,7 @@
 import { mutation, query } from "../_generated/server"; //query fetches data
 import { v } from "convex/values"; //v is a validator
 import { authenticatedMutation, authenticatedQuery } from "./helpers";
+import { internal } from "../_generated/api";
 
 export const list = authenticatedQuery({
   args: {
@@ -36,36 +37,39 @@ export const create = authenticatedMutation({
     content: v.string(), //content must be a string
     directMessage: v.id("directMessages"), //directMessage must be an id
   },
-    handler: async (ctx, { content, directMessage }) => {
-      const member = await ctx.db
-        .query("directMessageMembers")
-        .withIndex("by_direct_message_user", (q) =>
-          q.eq("directMessage", directMessage).eq("user", ctx.user._id)
-        )
-        .first();
-      if (!member) {
-        throw new Error("You are not a member of this direct message thread");
-      }
-      await ctx.db.insert("messages", {
-          content,
-          directMessage,
-          sender: ctx.user._id,
-      }); //insert the message into the database
+  handler: async (ctx, { content, directMessage }) => {
+    const member = await ctx.db
+      .query("directMessageMembers")
+      .withIndex("by_direct_message_user", (q) =>
+        q.eq("directMessage", directMessage).eq("user", ctx.user._id)
+      )
+      .first();
+    if (!member) {
+      throw new Error("You are not a member of this direct message thread");
+    }
+    await ctx.db.insert("messages", {
+      content,
+      directMessage,
+      sender: ctx.user._id,
+    }); //insert the message into the database
+    await ctx.scheduler.runAfter(0, internal.functions.typing.remove, {
+      directMessage,
+      user: ctx.user._id,
+    }); //run the remove function
   },
 });
 
 export const remove = authenticatedMutation({
-    args: {
-        id: v.id("messages"),
-    },
-    handler: async (ctx, { id }) => {
-        const message = await ctx.db.get(id); //get the message
-        if (!message) {
-            throw new Error("Message not found");
-        }
-        else if (message.sender !== ctx.user._id) { 
-            throw new Error("You are not the sender of this message");
-        }
-        await ctx.db.delete(id); //delete the message from the database
-    },
+  args: {
+    id: v.id("messages"),
+  },
+  handler: async (ctx, { id }) => {
+    const message = await ctx.db.get(id); //get the message
+    if (!message) {
+      throw new Error("Message not found");
+    } else if (message.sender !== ctx.user._id) {
+      throw new Error("You are not the sender of this message");
+    }
+    await ctx.db.delete(id); //delete the message from the database
+  },
 });

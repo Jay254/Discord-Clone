@@ -6,7 +6,9 @@ export default defineSchema({
     username: v.string(),
     image: v.string(),
     clerkId: v.string(),
-  }).index("byClerkId", ["clerkId"]).index("byUsername", ["username"]),
+  })
+    .index("byClerkId", ["clerkId"])
+    .index("byUsername", ["username"]),
   friends: defineTable({
     user1: v.id("users"),
     user2: v.id("users"),
@@ -24,11 +26,17 @@ export default defineSchema({
     user: v.id("users"),
   })
     .index("by_direct_message", ["directMessage"])
-    .index("by_direct_message_user", ['directMessage', 'user'])
+    .index("by_direct_message_user", ["directMessage", "user"])
     .index("by_user", ["user"]),
   messages: defineTable({
     sender: v.id("users"),
     content: v.string(),
     directMessage: v.id("directMessages"),
   }).index("by_direct_message", ["directMessage"]),
+  typingIndicators: defineTable({
+    user: v.id("users"),
+    directMessage: v.id("directMessages"),
+    expiresAt: v.number(),
+  }).index("by_direct_message", ["directMessage"])
+    .index("by_user_direct_message", ["user", "directMessage"]),
 });
