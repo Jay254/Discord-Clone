@@ -26,7 +26,10 @@ export const list = authenticatedQuery({
     return await Promise.all(
       messages.map(async (message) => {
         const sender = await ctx.db.get(message.sender); //get the sender of the message
-        return { ...message, sender }; //return the message and the sender
+        const attachment = message.attachment
+          ? await ctx.storage.getUrl(message.attachment) //get the attachment of the message if there is one
+          : undefined;
+        return { ...message, attachment, sender }; //return the message and the sender
       })
     );
   },
@@ -35,9 +38,10 @@ export const list = authenticatedQuery({
 export const create = authenticatedMutation({
   args: {
     content: v.string(), //content must be a string
+    attachment: v.optional(v.id("_storage")), //attachment is optional
     directMessage: v.id("directMessages"), //directMessage must be an id
   },
-  handler: async (ctx, { content, directMessage }) => {
+  handler: async (ctx, { content, attachment, directMessage }) => {
     const member = await ctx.db
       .query("directMessageMembers")
       .withIndex("by_direct_message_user", (q) =>
@@ -49,6 +53,7 @@ export const create = authenticatedMutation({
     }
     await ctx.db.insert("messages", {
       content,
+      attachment,
       directMessage,
       sender: ctx.user._id,
     }); //insert the message into the database
@@ -71,5 +76,14 @@ export const remove = authenticatedMutation({
       throw new Error("You are not the sender of this message");
     }
     await ctx.db.delete(id); //delete the message from the database
+    if (message.attachment) {
+      await ctx.storage.delete(message.attachment); //delete the attachment if there is one
+    }
+  },
+});
+
+export const generateUploadUrl = authenticatedMutation({
+  handler: async (ctx) => {
+    return await ctx.storage.generateUploadUrl(); //generate an upload url
   },
 });
