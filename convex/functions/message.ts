@@ -1,26 +1,18 @@
 import { mutation, query } from "../_generated/server"; //query fetches data
 import { v } from "convex/values"; //v is a validator
-import { authenticatedMutation, authenticatedQuery } from "./helpers";
+import { assertMember, authenticatedMutation, authenticatedQuery } from "./helpers";
 import { internal } from "../_generated/api";
 
 export const list = authenticatedQuery({
   args: {
-    directMessage: v.id("directMessages"), //directMessage must be an id
+    dmOrChannelId: v.union(v.id("directMessages"), v.id("channels")), //directMessage must be an id
   },
-  handler: async (ctx, { directMessage }) => {
-    const member = await ctx.db
-      .query("directMessageMembers")
-      .withIndex("by_direct_message_user", (q) =>
-        q.eq("directMessage", directMessage).eq("user", ctx.user._id)
-      )
-      .first();
-    if (!member) {
-      throw new Error("You are not a member of this direct message thread");
-    }
+  handler: async (ctx, { dmOrChannelId }) => {
+    await assertMember(ctx, dmOrChannelId); //assert that the user is a member of the dm or channel
     const messages = await ctx.db
       .query("messages")
-      .withIndex("by_direct_message", (q) =>
-        q.eq("directMessage", directMessage)
+      .withIndex("by_dmOrChannelId", (q) =>
+        q.eq("dmOrChannelId", dmOrChannelId)
       )
       .collect(); //fetch all messages in our database
     return await Promise.all(
@@ -39,26 +31,18 @@ export const create = authenticatedMutation({
   args: {
     content: v.string(), //content must be a string
     attachment: v.optional(v.id("_storage")), //attachment is optional
-    directMessage: v.id("directMessages"), //directMessage must be an id
+    dmOrChannelId: v.union(v.id("directMessages"), v.id("channels")), //directMessage must be an id
   },
-  handler: async (ctx, { content, attachment, directMessage }) => {
-    const member = await ctx.db
-      .query("directMessageMembers")
-      .withIndex("by_direct_message_user", (q) =>
-        q.eq("directMessage", directMessage).eq("user", ctx.user._id)
-      )
-      .first();
-    if (!member) {
-      throw new Error("You are not a member of this direct message thread");
-    }
+  handler: async (ctx, { content, attachment, dmOrChannelId }) => {
+    await assertMember(ctx, dmOrChannelId); //assert that the user is a member of the dm or channel
     await ctx.db.insert("messages", {
       content,
       attachment,
-      directMessage,
+      dmOrChannelId,
       sender: ctx.user._id,
     }); //insert the message into the database
     await ctx.scheduler.runAfter(0, internal.functions.typing.remove, {
-      directMessage,
+      dmOrChannelId,
       user: ctx.user._id,
     }); //run the remove function
   },
@@ -82,8 +66,3 @@ export const remove = authenticatedMutation({
   },
 });
 
-export const generateUploadUrl = authenticatedMutation({
-  handler: async (ctx) => {
-    return await ctx.storage.generateUploadUrl(); //generate an upload url
-  },
-});
