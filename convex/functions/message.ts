@@ -1,6 +1,10 @@
 import { mutation, query } from "../_generated/server"; //query fetches data
 import { v } from "convex/values"; //v is a validator
-import { assertMember, authenticatedMutation, authenticatedQuery } from "./helpers";
+import {
+  assertChannelMember,
+  authenticatedMutation,
+  authenticatedQuery,
+} from "./helpers";
 import { internal } from "../_generated/api";
 
 export const list = authenticatedQuery({
@@ -8,7 +12,7 @@ export const list = authenticatedQuery({
     dmOrChannelId: v.union(v.id("directMessages"), v.id("channels")), //directMessage must be an id
   },
   handler: async (ctx, { dmOrChannelId }) => {
-    await assertMember(ctx, dmOrChannelId); //assert that the user is a member of the dm or channel
+    await assertChannelMember(ctx, dmOrChannelId); //assert that the user is a member of the dm or channel
     const messages = await ctx.db
       .query("messages")
       .withIndex("by_dmOrChannelId", (q) =>
@@ -34,7 +38,7 @@ export const create = authenticatedMutation({
     dmOrChannelId: v.union(v.id("directMessages"), v.id("channels")), //directMessage must be an id
   },
   handler: async (ctx, { content, attachment, dmOrChannelId }) => {
-    await assertMember(ctx, dmOrChannelId); //assert that the user is a member of the dm or channel
+    await assertChannelMember(ctx, dmOrChannelId); //assert that the user is a member of the dm or channel
     await ctx.db.insert("messages", {
       content,
       attachment,
@@ -65,4 +69,3 @@ export const remove = authenticatedMutation({
     }
   },
 });
-

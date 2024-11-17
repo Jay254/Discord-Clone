@@ -1,4 +1,4 @@
-"use client"
+"use client";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -11,29 +11,30 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { api } from "../../../../convex/_generated/api";
+import { api } from "../../../../../convex/_generated/api";
 import { useMutation } from "convex/react";
 import { toast } from "sonner";
 import { useState } from "react";
 
 export function AddFriend() {
   const [open, setOpen] = useState(false);
-  const createFriendRequest = useMutation(api.functions.friend.createFriendRequest);
+  const createFriendRequest = useMutation(
+    api.functions.friend.createFriendRequest
+  );
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => { 
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     try {
       await createFriendRequest({ username: e.currentTarget.username.value });
       toast.success("Friend request sent!");
       setOpen(false);
-    }
-    catch (error) {
+    } catch (error) {
       toast.error("Failed to send friend request", {
-        description: error instanceof Error ? error.message : "An unknown error occurred",
+        description:
+          error instanceof Error ? error.message : "An unknown error occurred",
       });
-      
     }
-  }
+  };
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
